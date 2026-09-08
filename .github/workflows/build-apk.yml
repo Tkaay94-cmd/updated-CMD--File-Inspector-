@@ -32,7 +32,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Grant execute permission for gradlew
+      - name: Grant execute permission for gradlew (if present)
         run: |
           if [ -f ./gradlew ]; then chmod +x ./gradlew; fi
 
@@ -53,23 +53,88 @@ jobs:
         env:
           ANDROID_SDK_ROOT: ${{ runner.home }}/Android/Sdk
 
-      - name: Build debug APK (with gradle-wrapper fallback)
+      - name: Build APKs (detect Android application modules and assemble)
         run: |
           set -euo pipefail
-          if [ -f ./gradlew ]; then
-            echo "Using repository Gradle wrapper"
-            chmod +x ./gradlew
-            ./gradlew assembleDebug --no-daemon --stacktrace
-          else
-            echo "Gradle wrapper not found — installing system Gradle and running 'gradle assembleDebug'"
-            sudo apt-get update
-            sudo apt-get install -y gradle
-            gradle assembleDebug --no-daemon --stacktrace
+          echo "Discovering modules with build.gradle/build.gradle.kts..."
+          MODULE_DIRS=$(find . -maxdepth 2 -type f \( -name 'build.gradle' -o -name 'build.gradle.kts' \) -printf '%h\n' | sort -u | grep -v '^\.$' || true)
+          if [ -z "$MODULE_DIRS" ]; then
+            echo "No modules with build.gradle found. Dumping root tasks for debugging."
+            if [ -f ./gradlew ]; then
+              ./gradlew tasks --all --console=plain > root_tasks.txt || true
+            else
+              echo "No gradlew and no modules; aborting." >&2
+              exit 1
+            fi
+            head -n 200 root_tasks.txt || true
+            exit 0
           fi
 
-      - name: Upload APK artifact
+          BUILT_APKS=()
+          for dir in $MODULE_DIRS; do
+            module=":${dir#./}"
+            echo "\n=== Module: $module (path: $dir) ==="
+            # Dump tasks for debugging
+            if [ -f ./gradlew ]; then
+              ./gradlew "$module:tasks" --all --console=plain > "$dir/tasks.txt" || true
+            else
+              # Use lightweight gradlew fallback in repo root if present
+              if [ -x ./gradlew ]; then
+                ./gradlew "$module:tasks" --all --console=plain > "$dir/tasks.txt" || true
+              fi
+            fi
+            echo "--- tasks for $module (truncated) ---"
+            head -n 200 "$dir/tasks.txt" || true
+
+            # Detect android application plugin in build files
+            if grep -q "com.android.application" "$dir/build.gradle.kts" 2>/dev/null || grep -q "com.android.application" "$dir/build.gradle" 2>/dev/null; then
+              echo "Android application module detected: $module"
+              if grep -q "assembleDebug" "$dir/tasks.txt" 2>/dev/null; then
+                echo "Running $module:assembleDebug"
+                if [ -f ./gradlew ]; then
+                  ./gradlew "$module:assembleDebug" --no-daemon --stacktrace || true
+                else
+                  sudo apt-get update && sudo apt-get install -y gradle
+                  gradle "$module:assembleDebug" --no-daemon --stacktrace || true
+                fi
+              elif grep -q "\bassemble\b" "$dir/tasks.txt" 2>/dev/null; then
+                echo "Running $module:assemble"
+                if [ -f ./gradlew ]; then
+                  ./gradlew "$module:assemble" --no-daemon --stacktrace || true
+                else
+                  sudo apt-get update && sudo apt-get install -y gradle
+                  gradle "$module:assemble" --no-daemon --stacktrace || true
+                fi
+              else
+                echo "No assemble tasks found for $module; skipping."
+              fi
+            else
+              echo "Not an Android application module; skipping assemble for $module"
+            fi
+
+            # Collect any APKs produced
+            if [ -d "$dir/build/outputs/apk" ]; then
+              while IFS= read -r -d '' apk; do
+                BUILT_APKS+=("$apk")
+              done < <(find "$dir/build/outputs/apk" -type f -name "*.apk" -print0 || true)
+            fi
+          done
+
+          if [ ${#BUILT_APKS[@]} -eq 0 ]; then
+            echo "No APKs were produced by the build. Check tasks.txt and logs for details." >&2
+            exit 1
+          fi
+
+          echo "Built APKs:"
+          for a in "${BUILT_APKS[@]}"; do
+            echo " - $a"
+          done
+
+      - name: Upload APK artifact and task lists
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: app-apks
-          path: app/build/outputs/**/*.apk
+          path: |
+            **/tasks.txt
+            **/build/outputs/**/*.apk
