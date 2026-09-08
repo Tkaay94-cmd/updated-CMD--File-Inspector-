@@ -1,0 +1,25 @@
+# Ignore Gradle, Android Studio and build outputs
+.gradle/
+/local.properties
+/.idea/
+/.gradle/
+/build/
+/captures/
+.externalNativeBuild/
+
+# Kotlin
+*.iml
+
+# Gradle
+.gradle/
+build/
+
+# Android Studio
+.idea/
+.DS_Store
+
+# Keystore files
+**/*.jks
+
+# Misc
+*.log
