@@ -53,9 +53,19 @@ jobs:
         env:
           ANDROID_SDK_ROOT: ${{ runner.home }}/Android/Sdk
 
-      - name: Build debug APK
+      - name: Build debug APK (with gradle-wrapper fallback)
         run: |
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          set -euo pipefail
+          if [ -f ./gradlew ]; then
+            echo "Using repository Gradle wrapper"
+            chmod +x ./gradlew
+            ./gradlew assembleDebug --no-daemon --stacktrace
+          else
+            echo "Gradle wrapper not found — installing system Gradle and running 'gradle assembleDebug'"
+            sudo apt-get update
+            sudo apt-get install -y gradle
+            gradle assembleDebug --no-daemon --stacktrace
+          fi
 
       - name: Upload APK artifact
         if: always()
