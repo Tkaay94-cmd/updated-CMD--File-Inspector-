@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ "main" ]
 
+env:
+  JAVA_TOOL_OPTIONS: "-Dfile.encoding=UTF8"
+
 jobs:
   unit-tests:
     runs-on: ubuntu-latest
@@ -26,7 +29,8 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+            .gradle
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', 'settings.gradle*') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
 
@@ -34,36 +38,65 @@ jobs:
         run: |
           if [ -f ./gradlew ]; then chmod +x ./gradlew; fi
 
-      - name: Discover and run unit tests
+      - name: Install Android SDK (commandline tools + platforms/build-tools)
+        # Install SDK components to support Android Gradle plugin if needed
         run: |
-          if [ -f ./gradlew ]; then
-            # Dump tasks for debugging
-            ./gradlew :app:tasks --all --console=plain > tasks.txt || true
-            echo "--- Available tasks (truncated) ---"
-            head -n 200 tasks.txt || true
+          ANDROID_SDK_ROOT="$HOME/Android/Sdk"
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+          curl -sSLo cmdline.zip https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip -q cmdline.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
+          # move into 'latest' folder expected by tools
+          if [ -d "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" ]; then
+            mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest" || true
+          elif [ ! -d "$ANDROID_SDK_ROOT/cmdline-tools/latest" ]; then
+            mv "$ANDROID_SDK_ROOT/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest" || true
+          fi
+          export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH"
+          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-33" "build-tools;33.0.0"
+          yes | sdkmanager --licenses || true
+        env:
+          ANDROID_SDK_ROOT: ${{ runner.home }}/Android/Sdk
 
-            # Try common unit test tasks in order
-            if grep -q "testDebugUnitTest" tasks.txt; then
-              echo "Running :app:testDebugUnitTest"
-              ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
-            elif grep -q "\:app\:test\b" tasks.txt || grep -q "\:app:tasks" tasks.txt; then
-              echo "Running :app:test"
-              ./gradlew :app:test --no-daemon --stacktrace
-            else
-              # Try a generic test invocation as a last resort
-              echo "No specific unit test task detected for :app. Attempting 'test' at root (may fail)."
-              ./gradlew test --no-daemon --stacktrace || true
-              echo "No recognized unit test tasks found; CI will continue but no tests were executed. See tasks.txt for available tasks."
-            fi
-          else
-            echo "Gradle wrapper not found; skipping tests"
+      - name: Discover modules and run unit tests
+        run: |
+          set -euo pipefail
+          echo "Discovering modules with build.gradle(.kts)..."
+          MODULE_DIRS=$(find . -maxdepth 2 -type f \( -name 'build.gradle' -o -name 'build.gradle.kts' \) -printf '%h\n' | sort -u | grep -v '^\.$' || true)
+          if [ -z "$MODULE_DIRS" ]; then
+            echo "No modules with build.gradle found. Attempting root tasks list."
+            ./gradlew tasks --all --console=plain > root_tasks.txt || true
+            head -n 200 root_tasks.txt || true
+            echo "No module-level build files discovered; skipping module test runs."
+            exit 0
           fi
 
-      - name: Upload test results
+          for dir in $MODULE_DIRS; do
+            module=":${dir#./}"
+            echo "\n=== Module: $module (path: $dir) ==="
+            # Dump tasks for the module for debugging
+            ./gradlew "$module:tasks" --all --console=plain > "$dir/tasks.txt" || true
+            echo "--- tasks for $module (truncated) ---"
+            head -n 200 "$dir/tasks.txt" || true
+
+            # Try common unit test tasks in order
+            if grep -q "testDebugUnitTest" "$dir/tasks.txt"; then
+              echo "Running $module:testDebugUnitTest"
+              ./gradlew "$module:testDebugUnitTest" --no-daemon --stacktrace || true
+            elif grep -q "\btest\b" "$dir/tasks.txt"; then
+              echo "Running $module:test"
+              ./gradlew "$module:test" --no-daemon --stacktrace || true
+            else
+              echo "No recognized unit test tasks found for $module; skipping."
+            fi
+          done
+
+      - name: Upload test results and task lists
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: junit-results
           path: |
-            app/build/test-results/**
-            app/build/reports/tests/**
+            **/tasks.txt
+            **/build/test-results/**
+            **/build/reports/tests/**
+            build/reports/problems/**
