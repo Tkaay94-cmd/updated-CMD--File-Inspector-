@@ -1,0 +1,154 @@
+name: Build and Release APK
+
+on:
+  push:
+    branches: [ "skeleton/init" ]
+  workflow_dispatch: {}
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Grant execute permission for gradlew (if present)
+        run: |
+          if [ -f ./gradlew ]; then chmod +x ./gradlew; fi
+
+      - name: Install Android SDK (command-line tools + platform/build-tools)
+        run: |
+          ANDROID_SDK_ROOT="$HOME/Android/Sdk"
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+          curl -sSLo cmdline.zip https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip -q cmdline.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
+          if [ -d "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" ]; then
+            mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest" || true
+          elif [ ! -d "$ANDROID_SDK_ROOT/cmdline-tools/latest" ]; then
+            mv "$ANDROID_SDK_ROOT/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest" || true
+          fi
+          export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH"
+          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-33" "build-tools;33.0.0"
+          yes | sdkmanager --licenses || true
+        env:
+          ANDROID_SDK_ROOT: ${{ runner.home }}/Android/Sdk
+
+      - name: Build APKs (detect Android application modules and assemble)
+        id: build_apks
+        run: |
+          set -euo pipefail
+          echo "Discovering modules with build.gradle/build.gradle.kts..."
+          MODULE_DIRS=$(find . -maxdepth 2 -type f \( -name 'build.gradle' -o -name 'build.gradle.kts' \) -printf '%h\n' | sort -u | grep -v '^\.$' || true)
+          if [ -z "$MODULE_DIRS" ]; then
+            echo "No modules with build.gradle found. Dumping root tasks for debugging."
+            if [ -f ./gradlew ]; then
+              ./gradlew tasks --all --console=plain > root_tasks.txt || true
+            else
+              echo "No gradlew and no modules; aborting." >&2
+              exit 1
+            fi
+            head -n 200 root_tasks.txt || true
+            exit 0
+          fi
+
+          BUILT_APKS=()
+          for dir in $MODULE_DIRS; do
+            module=":${dir#./}"
+            echo "\n=== Module: $module (path: $dir) ==="
+            if [ -f ./gradlew ]; then
+              ./gradlew "$module:tasks" --all --console=plain > "$dir/tasks.txt" || true
+            fi
+            echo "--- tasks for $module (truncated) ---"
+            head -n 200 "$dir/tasks.txt" || true
+
+            if grep -q "com.android.application" "$dir/build.gradle.kts" 2>/dev/null || grep -q "com.android.application" "$dir/build.gradle" 2>/dev/null; then
+              echo "Android application module detected: $module"
+              if grep -q "assembleDebug" "$dir/tasks.txt" 2>/dev/null; then
+                echo "Running $module:assembleDebug"
+                if [ -f ./gradlew ]; then
+                  ./gradlew "$module:assembleDebug" --no-daemon --stacktrace || true
+                else
+                  sudo apt-get update && sudo apt-get install -y gradle
+                  gradle "$module:assembleDebug" --no-daemon --stacktrace || true
+                fi
+              elif grep -q "\bassemble\b" "$dir/tasks.txt" 2>/dev/null; then
+                echo "Running $module:assemble"
+                if [ -f ./gradlew ]; then
+                  ./gradlew "$module:assemble" --no-daemon --stacktrace || true
+                else
+                  sudo apt-get update && sudo apt-get install -y gradle
+                  gradle "$module:assemble" --no-daemon --stacktrace || true
+                fi
+              else
+                echo "No assemble tasks found for $module; skipping."
+              fi
+            else
+              echo "Not an Android application module; skipping assemble for $module"
+            fi
+
+            if [ -d "$dir/build/outputs/apk" ]; then
+              while IFS= read -r -d '' apk; do
+                BUILT_APKS+=("$apk")
+              done < <(find "$dir/build/outputs/apk" -type f -name "*.apk" -print0 || true)
+            fi
+          done
+
+          if [ ${#BUILT_APKS[@]} -eq 0 ]; then
+            echo "No APKs were produced by the build. Check tasks.txt and logs for details." >&2
+            exit 1
+          fi
+
+          printf "%s\n" "${BUILT_APKS[@]}" > built_apks_list.txt
+          echo "Built APK list written to built_apks_list.txt"
+        shell: bash
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ github.sha }}
+          release_name: "Thirdparty Inspector APK"
+          body: "Automated CI build for ${{ github.sha }}"
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload APKs to Release
+        run: |
+          set -euo pipefail
+          UPLOAD_URL="${{ steps.create_release.outputs.upload_url }}"
+          echo "Upload URL: $UPLOAD_URL"
+          if [ ! -f built_apks_list.txt ]; then
+            echo "built_apks_list.txt missing" >&2
+            exit 1
+          fi
+          while IFS= read -r apk; do
+            [ -z "$apk" ] && continue
+            if [ ! -f "$apk" ]; then
+              echo "APK not found: $apk" >&2
+              continue
+            fi
+            filename=$(basename "$apk")
+            echo "Uploading $filename to release"
+            curl -sSL -X POST -H "Authorization: token $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"$apk" "$UPLOAD_URL?name=$filename"
+          done < built_apks_list.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload build artifacts (tasks and APKs)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-apks
+          path: |
+            **/tasks.txt
+            built_apks_list.txt
+            **/build/outputs/**/*.apk
