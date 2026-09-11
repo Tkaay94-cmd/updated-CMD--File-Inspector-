@@ -45,21 +45,21 @@ jobs:
         run: |
           set -euo pipefail
           echo "Discovering modules with build.gradle/build.gradle.kts..."
-          MODULE_DIRS=$(find . -maxdepth 2 -type f \( -name 'build.gradle' -o -name 'build.gradle.kts' \) -printf '%h\n' | sort -u | grep -v '^\.$' || true)
-          
-          if [ -z "$MODULE_DIRS" ]; then
-            echo "ERROR: No modules with build.gradle found. Listing gradle files in repo:"
-            find . -maxdepth 3 -name "*.gradle*" -type f || true
-            echo "Dumping root tasks for debugging."
-            if [ -f ./gradlew ]; then
-              ./gradlew tasks --all --console=plain > root_tasks.txt
-            else
-              echo "No gradlew found; aborting." >&2
-              exit 1
-            fi
-            head -n 200 root_tasks.txt || true
-            exit 1
-          fi
+MODULE_DIRS=$(find . -maxdepth 3 -type f \( -name 'build.gradle' -o -name 'build.gradle.kts' \) -printf '%h\n' | sort -u | grep -v '^\.$' || true)
+
+if [ -z "$MODULE_DIRS" ]; then
+  echo "ERROR: No modules with build.gradle found. Listing gradle files in repo:"
+  find . -maxdepth 3 -name "*.gradle*" -type f || true
+  echo "Dumping root tasks for debugging."
+  if [ -f ./gradlew ]; then
+    ./gradlew tasks --all --console=plain > root_tasks.txt
+  else
+    echo "No gradlew found; aborting." >&2
+    exit 1
+  fi
+  head -n 200 root_tasks.txt || true
+  exit 1
+fi
 
           BUILT_APKS=()
           for dir in $MODULE_DIRS; do
