@@ -45,25 +45,28 @@ jobs:
         run: |
           set -euo pipefail
           echo "Discovering modules with build.gradle/build.gradle.kts..."
-          MODULE_DIRS=$(find . -maxdepth 2 -type f \( -name 'build.gradle' -o -name 'build.gradle.kts' \) -printf '%h\n' | sort -u | grep -v '^\.$' || true)
-          if [ -z "$MODULE_DIRS" ]; then
-            echo "No modules with build.gradle found. Dumping root tasks for debugging."
-            if [ -f ./gradlew ]; then
-              ./gradlew tasks --all --console=plain > root_tasks.txt || true
-            else
-              echo "No gradlew and no modules; aborting." >&2
-              exit 1
-            fi
-            head -n 200 root_tasks.txt || true
-            exit 0
-          fi
+MODULE_DIRS=$(find . -maxdepth 3 -type f \( -name 'build.gradle' -o -name 'build.gradle.kts' \) -printf '%h\n' | sort -u | grep -v '^\.$' || true)
+
+if [ -z "$MODULE_DIRS" ]; then
+  echo "ERROR: No modules with build.gradle found. Listing gradle files in repo:"
+  find . -maxdepth 3 -name "*.gradle*" -type f || true
+  echo "Dumping root tasks for debugging."
+  if [ -f ./gradlew ]; then
+    ./gradlew tasks --all --console=plain > root_tasks.txt
+  else
+    echo "No gradlew found; aborting." >&2
+    exit 1
+  fi
+  head -n 200 root_tasks.txt || true
+  exit 1
+fi
 
           BUILT_APKS=()
           for dir in $MODULE_DIRS; do
             module=":${dir#./}"
-            echo "\n=== Module: $module (path: $dir) ==="
+            echo -e "\n=== Module: $module (path: $dir) ==="
             if [ -f ./gradlew ]; then
-              ./gradlew "$module:tasks" --all --console=plain > "$dir/tasks.txt" || true
+              ./gradlew "$module:tasks" --all --console=plain > "$dir/tasks.txt"
             fi
             echo "--- tasks for $module (truncated) ---"
             head -n 200 "$dir/tasks.txt" || true
@@ -73,21 +76,21 @@ jobs:
               if grep -q "assembleDebug" "$dir/tasks.txt" 2>/dev/null; then
                 echo "Running $module:assembleDebug"
                 if [ -f ./gradlew ]; then
-                  ./gradlew "$module:assembleDebug" --no-daemon --stacktrace || true
+                  ./gradlew "$module:assembleDebug" --no-daemon --stacktrace
                 else
                   sudo apt-get update && sudo apt-get install -y gradle
-                  gradle "$module:assembleDebug" --no-daemon --stacktrace || true
+                  gradle "$module:assembleDebug" --no-daemon --stacktrace
                 fi
               elif grep -q "\bassemble\b" "$dir/tasks.txt" 2>/dev/null; then
                 echo "Running $module:assemble"
                 if [ -f ./gradlew ]; then
-                  ./gradlew "$module:assemble" --no-daemon --stacktrace || true
+                  ./gradlew "$module:assemble" --no-daemon --stacktrace
                 else
                   sudo apt-get update && sudo apt-get install -y gradle
-                  gradle "$module:assemble" --no-daemon --stacktrace || true
+                  gradle "$module:assemble" --no-daemon --stacktrace
                 fi
               else
-                echo "No assemble tasks found for $module; skipping."
+                echo "ERROR: No assemble tasks found for $module; skipping."
               fi
             else
               echo "Not an Android application module; skipping assemble for $module"
@@ -96,30 +99,31 @@ jobs:
             if [ -d "$dir/build/outputs/apk" ]; then
               while IFS= read -r -d '' apk; do
                 BUILT_APKS+=("$apk")
-              done < <(find "$dir/build/outputs/apk" -type f -name "*.apk" -print0 || true)
+              done < <(find "$dir/build/outputs/apk" -type f -name "*.apk" -print0)
             fi
           done
 
           if [ ${#BUILT_APKS[@]} -eq 0 ]; then
-            echo "No APKs were produced by the build. Check tasks.txt and logs for details." >&2
+            echo "ERROR: No APKs were produced by the build. Check tasks.txt and logs for details." >&2
             exit 1
           fi
 
           printf "%s\n" "${BUILT_APKS[@]}" > built_apks_list.txt
           echo "Built APK list written to built_apks_list.txt"
+          cat built_apks_list.txt
         shell: bash
 
       - name: Create GitHub Release
-  id: create_release
-  uses: actions/create-release@v1
-  with:
-    tag_name: release-${{ github.sha }}
-    release_name: "Thirdparty Inspector APK"
-    body: "Automated CI build for ${{ github.sha }}"
-    draft: false
-    prerelease: false
-  env:
-    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          tag_name: thirdparty-inspector-${{ github.run_number }}-${{ github.run_attempt }}
+          release_name: "Thirdparty Inspector APK - Run ${{ github.run_number }}"
+          body: "Automated CI build for ${{ github.sha }}"
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload APKs to Release
         run: |
