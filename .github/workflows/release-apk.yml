@@ -45,9 +45,10 @@ jobs:
         run: |
           set -euo pipefail
           echo "Discovering modules with build.gradle/build.gradle.kts..."
-          MODULE_DIRS=$(find . -maxdepth 2 -type f \( -name 'build.gradle' -o -name 'build.gradle.kts' \) -printf '%h\n' | sort -u | grep -v '^\.$' || true)
+          MODULE_DIRS=$(find . -maxdepth 3 -type f \( -name 'build.gradle' -o -name 'build.gradle.kts' \) -printf '%h\n' | sort -u | grep -v '^\.$' || true)
           if [ -z "$MODULE_DIRS" ]; then
-            echo "No modules with build.gradle found. Dumping root tasks for debugging."
+            echo "No modules with build.gradle found. Listing gradle files and dumping root tasks for debugging."
+            find . -maxdepth 3 -name "*.gradle*" -type f || true
             if [ -f ./gradlew ]; then
               ./gradlew tasks --all --console=plain > root_tasks.txt || true
             else
@@ -55,7 +56,7 @@ jobs:
               exit 1
             fi
             head -n 200 root_tasks.txt || true
-            exit 0
+            exit 1
           fi
 
           BUILT_APKS=()
@@ -110,16 +111,16 @@ jobs:
         shell: bash
 
       - name: Create GitHub Release
-  id: create_release
-  uses: actions/create-release@v1
-  with:
-    tag_name: release-${{ github.sha }}
-    release_name: "Thirdparty Inspector APK"
-    body: "Automated CI build for ${{ github.sha }}"
-    draft: false
-    prerelease: false
-  env:
-    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          tag_name: release-${{ github.sha }}
+          release_name: "Thirdparty Inspector APK"
+          body: "Automated CI build for ${{ github.sha }}"
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload APKs to Release
         run: |
