@@ -1,4 +1,3 @@
-kotlin
 package com.thirdpartyinspector.ui.dashboard
 
 import androidx.compose.foundation.layout.Column

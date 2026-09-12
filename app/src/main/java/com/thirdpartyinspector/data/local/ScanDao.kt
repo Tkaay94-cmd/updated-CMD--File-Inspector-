@@ -1,4 +1,3 @@
-kotlin
 package com.thirdpartyinspector.data.local
 
 import androidx.room.Dao

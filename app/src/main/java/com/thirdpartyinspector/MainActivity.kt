@@ -1,4 +1,3 @@
-kotlin
 package com.thirdpartyinspector
 
 import android.os.Bundle

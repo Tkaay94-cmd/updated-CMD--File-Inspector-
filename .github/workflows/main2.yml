@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -26,23 +26,57 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
-      - name: Build debug APK
-        run: ./gradlew assembleDebug
-
-      - name: Locate APK
-        id: apk
+      - name: Install Android SDK
         run: |
-          APK_PATH=$(find . -type f -name "*debug*.apk" | head -n 1)
-          if [ -z "$APK_PATH" ]; then
-            echo "No debug APK found."
+          ANDROID_SDK_ROOT="$HOME/Android/Sdk"
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+          curl -sSLo cmdline.zip https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip -q cmdline.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
+          if [ -d "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" ]; then
+            mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest" || true
+          elif [ ! -d "$ANDROID_SDK_ROOT/cmdline-tools/latest" ]; then
+            mv "$ANDROID_SDK_ROOT/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest" || true
+          fi
+          export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH"
+          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-33" "build-tools;33.0.0"
+          yes | sdkmanager --licenses || true
+        env:
+          ANDROID_SDK_ROOT: ${{ runner.home }}/Android/Sdk
+
+      - name: Build debug APKs
+        run: |
+          set -euo pipefail
+          MODULE_DIRS=$(find . -maxdepth 3 -type f \( -name 'build.gradle' -o -name 'build.gradle.kts' \) -printf '%h\n' | sort -u | grep -v '^\.$' || true)
+          if [ -z "$MODULE_DIRS" ]; then
+            echo "No modules with build.gradle found."
             exit 1
           fi
-          echo "apk_path=$APK_PATH" >> "$GITHUB_OUTPUT"
-          echo "Found APK at $APK_PATH"
+
+          BUILT_APKS=()
+          for dir in $MODULE_DIRS; do
+            module=":${dir#./}"
+            if ! grep -q "com.android.application" "$dir/build.gradle.kts" 2>/dev/null && ! grep -q "com.android.application" "$dir/build.gradle" 2>/dev/null; then
+              continue
+            fi
+
+            ./gradlew "$module:assembleDebug" --no-daemon --stacktrace
+
+            if [ -d "$dir/build/outputs/apk" ]; then
+              while IFS= read -r -d '' apk; do
+                BUILT_APKS+=("$apk")
+              done < <(find "$dir/build/outputs/apk" -type f -name "*debug*.apk" -print0)
+            fi
+          done
+
+          if [ ${#BUILT_APKS[@]} -eq 0 ]; then
+            echo "No debug APKs were produced."
+            exit 1
+          fi
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-debug-apk
-          path: ${{ steps.apk.outputs.apk_path }}
+          path: |
+            **/build/outputs/**/*.apk
           if-no-files-found: error
