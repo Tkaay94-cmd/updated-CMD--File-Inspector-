@@ -17,6 +17,8 @@ android {
         versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Optionally declare queries for package visibility (none declared by default).
+        // Avoid REQUESTING QUERY_ALL_PACKAGES by default. If you use it, explain why and the privacy implications.
     }
 
     buildFeatures {
@@ -41,14 +43,9 @@ android {
         jvmTarget = "17"
     }
 
-    defaultConfig {
-        // Optionally declare queries for package visibility (none declared by default).
-        // Avoid REQUESTING QUERY_ALL_PACKAGES by default. If you use it, explain why and the privacy implications.
-    }
 }
 
 dependencies {
-    val kotlinVersion: String by project
     val lifecycleVersion: String by project
     val coroutinesVersion: String by project
     val roomVersion: String by project
