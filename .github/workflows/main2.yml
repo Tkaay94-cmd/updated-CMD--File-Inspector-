@@ -43,8 +43,8 @@ jobs:
             mv "$CMDLINE_TOOLS_DIR/"* "$ANDROID_SDK_ROOT/cmdline-tools/latest/"
           fi
           export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH"
-          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-${COMPILE_SDK}" "build-tools;${BUILD_TOOLS}"
           yes | sdkmanager --licenses || true
+          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-${COMPILE_SDK}" "build-tools;${BUILD_TOOLS}"
         env:
           ANDROID_SDK_ROOT: ${{ runner.home }}/Android/Sdk
 
