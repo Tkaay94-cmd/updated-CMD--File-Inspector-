@@ -1,4 +1,3 @@
-kotlin
 plugins {
     id("com.android.application")
     kotlin("android")
@@ -18,6 +17,8 @@ android {
         versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Optionally declare queries for package visibility (none declared by default).
+        // Avoid REQUESTING QUERY_ALL_PACKAGES by default. If you use it, explain why and the privacy implications.
     }
 
     buildFeatures {
@@ -42,21 +43,16 @@ android {
         jvmTarget = "17"
     }
 
-    defaultConfig {
-        // Optionally declare queries for package visibility (none declared by default).
-        // Avoid REQUESTING QUERY_ALL_PACKAGES by default. If you use it, explain why and the privacy implications.
-    }
 }
 
 dependencies {
-    val kotlinVersion: String by project
     val lifecycleVersion: String by project
     val coroutinesVersion: String by project
     val roomVersion: String by project
     val hiltVersion: String by project
     val composeBom: String by project
 
-    implementation(platform("androidx.compose:compose-bom:$`composeBom"))
+    implementation(platform("androidx.compose:compose-bom:$composeBom"))
 
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
@@ -68,21 +64,21 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.8.0")
 
     // Lifecycle
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:`$lifecycleVersion")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:$`lifecycleVersion")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:$lifecycleVersion")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:$lifecycleVersion")
 
     // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:`$coroutinesVersion")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:$`coroutinesVersion")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutinesVersion")
 
     // Hilt
-    implementation("com.google.dagger:hilt-android:`$hiltVersion")
-    kapt("com.google.dagger:hilt-compiler:$`hiltVersion")
+    implementation("com.google.dagger:hilt-android:$hiltVersion")
+    kapt("com.google.dagger:hilt-compiler:$hiltVersion")
 
     // Room
-    implementation("androidx.room:room-runtime:`$roomVersion")
-    kapt("androidx.room:room-compiler:$`roomVersion")
-    implementation("androidx.room:room-ktx:`$roomVersion")
+    implementation("androidx.room:room-runtime:$roomVersion")
+    kapt("androidx.room:room-compiler:$roomVersion")
+    implementation("androidx.room:room-ktx:$roomVersion")
 
     // WorkManager
     implementation("androidx.work:work-runtime-ktx:2.8.1")
