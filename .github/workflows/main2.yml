@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -26,23 +26,28 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
-      - name: Build debug APK
-        run: ./gradlew assembleDebug
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Locate APK
-        id: apk
+      - name: Install Android SDK packages
         run: |
-          APK_PATH=$(find . -type f -name "*debug*.apk" | head -n 1)
-          if [ -z "$APK_PATH" ]; then
-            echo "No debug APK found."
+          COMPILE_SDK=$(grep '^compileSdk=' gradle.properties | cut -d'=' -f2)
+          BUILD_TOOLS=$(grep '^buildToolsVersion=' gradle.properties | cut -d'=' -f2)
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "platforms;android-${COMPILE_SDK}" "build-tools;${BUILD_TOOLS}"
+
+      - name: Build debug APK
+        run: |
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace
+          if ! find app/build/outputs/apk -type f -name "*debug*.apk" | grep -q .; then
+            echo "No debug APKs were produced for :app."
             exit 1
           fi
-          echo "apk_path=$APK_PATH" >> "$GITHUB_OUTPUT"
-          echo "Found APK at $APK_PATH"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-debug-apk
-          path: ${{ steps.apk.outputs.apk_path }}
+          path: |
+            app/build/outputs/**/*.apk
           if-no-files-found: error

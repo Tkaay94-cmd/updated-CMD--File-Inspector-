@@ -1,4 +1,3 @@
-kotlin
 package com.thirdpartyinspector.scanner
 
 import android.content.Context
