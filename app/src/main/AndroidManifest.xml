@@ -1,5 +1,4 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.thirdpartyinspector">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- Minimal manifest. The app will only request runtime permissions as needed -->
     <!-- For API 29+, consider using scoped storage and Storage Access Framework for user-selected directories -->
