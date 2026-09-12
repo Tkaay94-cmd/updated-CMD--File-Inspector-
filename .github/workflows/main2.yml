@@ -29,6 +29,8 @@ jobs:
       - name: Install Android SDK
         run: |
           ANDROID_SDK_ROOT="$HOME/Android/Sdk"
+          COMPILE_SDK=$(grep '^compileSdk=' gradle.properties | cut -d'=' -f2)
+          BUILD_TOOLS="${COMPILE_SDK}.0.0"
           mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
           curl -sSLo cmdline.zip https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
           unzip -q cmdline.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
@@ -38,7 +40,7 @@ jobs:
             mv "$ANDROID_SDK_ROOT/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest" || true
           fi
           export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH"
-          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-33" "build-tools;33.0.0"
+          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-${COMPILE_SDK}" "build-tools;${BUILD_TOOLS}"
           yes | sdkmanager --licenses || true
         env:
           ANDROID_SDK_ROOT: ${{ runner.home }}/Android/Sdk
