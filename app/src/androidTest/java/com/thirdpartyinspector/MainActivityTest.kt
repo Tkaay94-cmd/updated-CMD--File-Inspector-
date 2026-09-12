@@ -23,7 +23,7 @@ class MainActivityTest {
     }
 
     @Test
-    fun dashboardTitleIsDisplayed() {
+    fun dashboardScreenIsDisplayed() {
         composeRule.onNodeWithTag("dashboard-screen").assertIsDisplayed()
     }
 }
