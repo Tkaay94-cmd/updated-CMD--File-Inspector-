@@ -25,5 +25,7 @@ class MainActivityTest {
     @Test
     fun dashboardScreenIsDisplayed() {
         composeRule.onNodeWithTag("dashboard-screen").assertIsDisplayed()
+        composeRule.onNodeWithTag("dashboard-title").assertIsDisplayed()
+        composeRule.onNodeWithTag("dashboard-scan-button").assertIsDisplayed()
     }
 }

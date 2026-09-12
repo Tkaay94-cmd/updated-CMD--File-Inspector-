@@ -11,9 +11,9 @@ import androidx.compose.ui.platform.testTag
 @Composable
 fun DashboardScreen() {
     Column(modifier = Modifier.fillMaxSize().testTag("dashboard-screen")) {
-        Text(text = "ThirdPartyInspector")
+        Text(text = "ThirdPartyInspector", modifier = Modifier.testTag("dashboard-title"))
         // TODO: Replace with actual summary widgets wired to ViewModel
-        Button(onClick = { /* trigger scan */ }) {
+        Button(onClick = { /* trigger scan */ }, modifier = Modifier.testTag("dashboard-scan-button")) {
             Text("Scan now")
         }
     }
