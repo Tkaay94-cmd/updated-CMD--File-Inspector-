@@ -31,13 +31,16 @@ jobs:
           ANDROID_SDK_ROOT="$HOME/Android/Sdk"
           COMPILE_SDK=$(grep '^compileSdk=' gradle.properties | cut -d'=' -f2)
           BUILD_TOOLS="${COMPILE_SDK}.0.0"
+          CMDLINE_TOOLS_DIR=$(mktemp -d)
           mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
           curl -sSLo cmdline.zip https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-          unzip -q cmdline.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
-          if [ -d "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" ]; then
-            mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest" || true
-          elif [ ! -d "$ANDROID_SDK_ROOT/cmdline-tools/latest" ]; then
-            mv "$ANDROID_SDK_ROOT/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest" || true
+          unzip -q cmdline.zip -d "$CMDLINE_TOOLS_DIR"
+          rm -rf "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          if [ -d "$CMDLINE_TOOLS_DIR/cmdline-tools" ]; then
+            mv "$CMDLINE_TOOLS_DIR/cmdline-tools/"* "$ANDROID_SDK_ROOT/cmdline-tools/latest/"
+          else
+            mv "$CMDLINE_TOOLS_DIR/"* "$ANDROID_SDK_ROOT/cmdline-tools/latest/"
           fi
           export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH"
           yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-${COMPILE_SDK}" "build-tools;${BUILD_TOOLS}"
@@ -45,33 +48,11 @@ jobs:
         env:
           ANDROID_SDK_ROOT: ${{ runner.home }}/Android/Sdk
 
-      - name: Build debug APKs
+      - name: Build debug APK
         run: |
-          set -euo pipefail
-          MODULE_DIRS=$(find . -maxdepth 3 -type f \( -name 'build.gradle' -o -name 'build.gradle.kts' \) -printf '%h\n' | sort -u | grep -v '^\.$' || true)
-          if [ -z "$MODULE_DIRS" ]; then
-            echo "No modules with build.gradle found."
-            exit 1
-          fi
-
-          BUILT_APKS=()
-          for dir in $MODULE_DIRS; do
-            module=":${dir#./}"
-            if ! grep -q "com.android.application" "$dir/build.gradle.kts" 2>/dev/null && ! grep -q "com.android.application" "$dir/build.gradle" 2>/dev/null; then
-              continue
-            fi
-
-            ./gradlew "$module:assembleDebug" --no-daemon --stacktrace
-
-            if [ -d "$dir/build/outputs/apk" ]; then
-              while IFS= read -r -d '' apk; do
-                BUILT_APKS+=("$apk")
-              done < <(find "$dir/build/outputs/apk" -type f -name "*debug*.apk" -print0)
-            fi
-          done
-
-          if [ ${#BUILT_APKS[@]} -eq 0 ]; then
-            echo "No debug APKs were produced."
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace
+          if ! find app/build/outputs/apk -type f -name "*debug*.apk" | grep -q .; then
+            echo "No debug APKs were produced for :app."
             exit 1
           fi
 
@@ -80,5 +61,5 @@ jobs:
         with:
           name: app-debug-apk
           path: |
-            **/build/outputs/**/*.apk
+            app/build/outputs/**/*.apk
           if-no-files-found: error
