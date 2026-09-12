@@ -12,7 +12,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             ThirdPartyInspectorTheme {
-                // TODO: Replace with Navigation and Dashboard screen
+                // TODO: Replace this placeholder dashboard entry point with navigation-backed screens.
                 com.thirdpartyinspector.ui.dashboard.DashboardScreen()
             }
         }

@@ -7,6 +7,7 @@ plugins {
 
 android {
     namespace = "com.thirdpartyinspector"
+    buildToolsVersion = property("buildToolsVersion").toString()
     compileSdk = property("compileSdk").toString().toInt()
 
     defaultConfig {
@@ -70,6 +71,8 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.8.1")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("com.google.dagger:hilt-android-testing:$hiltVersion")
+    kaptTest("com.google.dagger:hilt-compiler:$hiltVersion")
     androidTestImplementation(platform("androidx.compose:compose-bom:$composeBom"))
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")

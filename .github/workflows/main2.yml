@@ -30,7 +30,7 @@ jobs:
         run: |
           ANDROID_SDK_ROOT="$HOME/Android/Sdk"
           COMPILE_SDK=$(grep '^compileSdk=' gradle.properties | cut -d'=' -f2)
-          BUILD_TOOLS="${COMPILE_SDK}.0.0"
+          BUILD_TOOLS=$(grep '^buildToolsVersion=' gradle.properties | cut -d'=' -f2)
           CMDLINE_TOOLS_DIR=$(mktemp -d)
           mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
           curl -sSLo cmdline.zip https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
