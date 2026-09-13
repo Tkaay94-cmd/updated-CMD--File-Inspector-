@@ -1,4 +1,3 @@
-kotlin
 package com.thirdpartyinspector.data.model
 
 import com.thirdpartyinspector.domain.model.FindingCategory
