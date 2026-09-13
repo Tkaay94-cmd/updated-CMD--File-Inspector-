@@ -183,7 +183,7 @@ jobs:
             fi
             filename=$(basename "$apk")
             echo "Uploading $filename to release"
-            curl -sSL -X POST -H "Authorization: token $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"$apk" "$UPLOAD_URL?name=$filename"
+            curl --fail-with-body -sSL -X POST -H "Authorization: token $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"$apk" "$UPLOAD_URL?name=$filename"
           done < built_apks_list.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
