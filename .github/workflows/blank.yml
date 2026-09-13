@@ -33,12 +33,16 @@ jobs:
         run: |
           COMPILE_SDK=$(grep '^compileSdk=' gradle.properties | cut -d'=' -f2)
           BUILD_TOOLS=$(grep '^buildToolsVersion=' gradle.properties | cut -d'=' -f2)
-          if [ -z "${COMPILE_SDK}" ] || [ -z "${BUILD_TOOLS}" ]; then
-            echo "compileSdk or buildToolsVersion is missing from gradle.properties" >&2
+          if [ -z "${COMPILE_SDK}" ]; then
+            echo "compileSdk is missing from gradle.properties" >&2
             exit 1
           fi
           yes | sdkmanager --licenses || true
-          sdkmanager "platform-tools" "platforms;android-${COMPILE_SDK}" "build-tools;${BUILD_TOOLS}"
+          if [ -n "${BUILD_TOOLS}" ]; then
+            sdkmanager "platform-tools" "platforms;android-${COMPILE_SDK}" "build-tools;${BUILD_TOOLS}"
+          else
+            sdkmanager "platform-tools" "platforms;android-${COMPILE_SDK}"
+          fi
 
       - name: Build debug APK
         run: |
