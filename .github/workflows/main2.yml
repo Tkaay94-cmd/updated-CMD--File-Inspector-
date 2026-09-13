@@ -8,6 +8,9 @@ on:
       - master
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -40,7 +43,7 @@ jobs:
 
       - name: Build debug APK
         run: |
-          ./gradlew :app:assembleDebug --no-daemon --stacktrace
+          ./gradlew :app:assembleDebug -Dorg.gradle.project.android.useAndroidX=true -Dorg.gradle.project.android.enableJetifier=true --no-daemon --stacktrace
           if ! find app/build/outputs/apk -type f -name "*debug*.apk" | grep -q .; then
             echo "No debug APKs were produced for :app."
             exit 1

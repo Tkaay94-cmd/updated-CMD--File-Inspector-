@@ -13,6 +13,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-
 rootProject.name = "ThirdPartyInspector"
 include(":app")
