@@ -169,7 +169,7 @@ jobs:
       - name: Upload APKs to Release
         run: |
           set -euo pipefail
-          UPLOAD_URL="${{ steps.create_release.outputs.upload_url }}"
+          UPLOAD_URL="${{ steps.create_release.outputs.upload_url }}"; UPLOAD_URL="${UPLOAD_URL%%\{*}"
           echo "Upload URL: $UPLOAD_URL"
           if [ ! -f built_apks_list.txt ]; then
             echo "built_apks_list.txt missing" >&2
