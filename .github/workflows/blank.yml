@@ -55,26 +55,10 @@ jobs:
             app/build/outputs/**/*.apk
           if-no-files-found: error
 
-      - name: Compute release metadata
-        id: release_meta
-        run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            echo "tag_name=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
-            if [ -n "${{ github.event.release.name }}" ]; then
-              echo "release_name=${{ github.event.release.name }}" >> "$GITHUB_OUTPUT"
-            else
-              echo "release_name=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
-            fi
-          else
-            echo "tag_name=thirdparty-inspector-${{ github.run_number }}-${{ github.run_attempt }}" >> "$GITHUB_OUTPUT"
-            echo "release_name=Thirdparty Inspector APK - Run ${{ github.run_number }}" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Publish release with APK
+        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.release_meta.outputs.tag_name }}
-          name: ${{ steps.release_meta.outputs.release_name }}
           body: Automated CI build for ${{ github.sha }}
           files: |
             app/build/outputs/**/*.apk
