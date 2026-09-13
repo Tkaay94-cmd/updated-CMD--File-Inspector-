@@ -1,4 +1,3 @@
-kotlin
 package com.thirdpartyinspector.data.repository
 
 import com.thirdpartyinspector.data.local.ScanDao

@@ -54,5 +54,5 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideRiskEngine(permissionInspector: PermissionInspector): RiskEngine = RiskEngine(permissionInspector)
+    fun provideRiskEngine(): RiskEngine = RiskEngine()
 }
