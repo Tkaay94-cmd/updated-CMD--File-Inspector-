@@ -4,16 +4,3 @@ plugins {
     kotlin("kapt") version "1.9.10" apply false
     id("com.google.dagger.hilt.android") version "2.47" apply false
 }
-
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}

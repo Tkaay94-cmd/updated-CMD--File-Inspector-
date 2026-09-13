@@ -169,7 +169,7 @@ jobs:
       - name: Upload APKs to Release
         run: |
           set -euo pipefail
-          UPLOAD_URL="${{ steps.create_release.outputs.upload_url }}"
+          UPLOAD_URL="${{ steps.create_release.outputs.upload_url }}"; UPLOAD_URL="${UPLOAD_URL%%\{*}"
           echo "Upload URL: $UPLOAD_URL"
           if [ ! -f built_apks_list.txt ]; then
             echo "built_apks_list.txt missing" >&2
@@ -183,7 +183,7 @@ jobs:
             fi
             filename=$(basename "$apk")
             echo "Uploading $filename to release"
-            curl -sSL -X POST -H "Authorization: token $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"$apk" "$UPLOAD_URL?name=$filename"
+            curl --fail-with-body -sSL -X POST -H "Authorization: token $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"$apk" "$UPLOAD_URL?name=$filename"
           done < built_apks_list.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
