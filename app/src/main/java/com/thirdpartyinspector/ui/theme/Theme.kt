@@ -1,4 +1,3 @@
-kotlin
 package com.thirdpartyinspector.ui.theme
 
 import androidx.compose.material3.MaterialTheme

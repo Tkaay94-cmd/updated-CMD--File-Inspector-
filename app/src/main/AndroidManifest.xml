@@ -1,9 +1,6 @@
-xml
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.thirdpartyinspector">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- Minimal manifest. The app will only request runtime permissions as needed -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <!-- For API 29+, consider using scoped storage and Storage Access Framework for user-selected directories -->
     <!-- Do not request QUERY_ALL_PACKAGES by default; only add after clear justification. -->
 
