@@ -1,0 +1,8 @@
+cd /home/ubuntu/updated-CMD--File-Inspector-
+
+git fetch origin main
+git merge origin/main --no-edit
+git push origin main
+
+git cherry-pick b3b7b18
+git push origin main
