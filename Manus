@@ -1,0 +1,11 @@
+cd /home/ubuntu/updated-CMD--File-Inspector-
+
+# Confirm the active GitHub account
+gh auth status
+
+# Configure Git to use GitHub CLI authentication
+gh auth setup-git
+
+# Test access without changing anything
+git ls-remote origin
+
