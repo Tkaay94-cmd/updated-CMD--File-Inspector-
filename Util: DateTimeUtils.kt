@@ -1,13 +1,10 @@
-kotlin
 package com.thirdpartyinspector.util
 
-import java.text.SimpleDateFormat
-import java.util.*
+import java.time.Instant
+import java.time.format.DateTimeFormatter
 
 object DateTimeUtils {
-    private val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
-        timeZone = TimeZone.getTimeZone("UTC")
-    }
+    private val iso: DateTimeFormatter = DateTimeFormatter.ISO_INSTANT
 
-    fun toIso(ts: Long): String = iso.format(Date(ts))
+    fun toIso(ts: Long): String = Instant.ofEpochMilli(ts).toString()
 }
