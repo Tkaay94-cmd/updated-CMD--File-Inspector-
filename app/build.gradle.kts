@@ -5,6 +5,17 @@ plugins {
     id("com.google.dagger.hilt.android")
 }
 
+val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+val keystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+val keyAliasValue = System.getenv("ANDROID_KEY_ALIAS")
+val keyPasswordValue = System.getenv("ANDROID_KEY_PASSWORD")
+val hasReleaseSigning = listOf(
+    keystorePath,
+    keystorePassword,
+    keyAliasValue,
+    keyPasswordValue
+).all { !it.isNullOrBlank() }
+
 android {
     namespace = "com.thirdpartyinspector"
     buildToolsVersion = property("buildToolsVersion").toString()
@@ -40,6 +51,25 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("productionRelease") {
+                storeFile = file(keystorePath!!)
+                storePassword = keystorePassword
+                keyAlias = keyAliasValue
+                keyPassword = keyPasswordValue
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("productionRelease")
+            }
+        }
     }
 }
 
