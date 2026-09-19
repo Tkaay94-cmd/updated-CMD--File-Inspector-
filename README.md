@@ -53,6 +53,19 @@ Then run:
 
 The debug APK is written under `app/build/outputs/apk/debug/`.
 
+### Signed GitHub release builds
+
+The `Build release candidate artifact` workflow uses the protected GitHub Environment named `production`. Configure these **environment secrets** in the repository before dispatching or merging a release build:
+
+| Secret | Value |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | Base64-encoded release/upload keystore bytes, stored as a single line. |
+| `ANDROID_KEYSTORE_PASSWORD` | Keystore password. |
+| `ANDROID_KEY_ALIAS` | Alias of the release/upload key. |
+| `ANDROID_KEY_PASSWORD` | Password for the release/upload key. |
+
+The workflow fails if any secret is absent, installs only the configured Android platform and build-tools packages, builds `app-release.apk`, verifies its signature with `apksigner`, verifies the application ID, and uploads only the verified signed artifact. Never commit the keystore or its passwords to the repository. A local unsigned `assembleRelease` result is not suitable for public distribution.
+
 ### Tests and static checks
 
 Run the JVM unit suite:

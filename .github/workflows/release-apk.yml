@@ -11,6 +11,7 @@ permissions:
 jobs:
   build-release-candidate:
     runs-on: ubuntu-latest
+    environment: production
 
     steps:
       - name: Check out repository
@@ -23,23 +24,83 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      - name: Set up Android SDK
+      - name: Set up Android SDK tools
         uses: android-actions/setup-android@v3
+        with:
+          # setup-android defaults to the obsolete "tools" package. Install only
+          # packages supported by current GitHub-hosted runners.
+          packages: platform-tools
+          accept-android-sdk-licenses: true
+          log-accepted-android-sdk-licenses: false
 
-      - name: Install Android SDK packages
+      - name: Install project Android SDK packages
+        shell: bash
         run: |
-          COMPILE_SDK=$(grep '^compileSdk=' gradle.properties | cut -d'=' -f2)
-          BUILD_TOOLS=$(grep '^buildToolsVersion=' gradle.properties | cut -d'=' -f2)
-          yes | sdkmanager "platform-tools" "platforms;android-${COMPILE_SDK}" "build-tools;${BUILD_TOOLS}"
+          set -euo pipefail
+          compile_sdk="$(sed -n 's/^compileSdk=//p' gradle.properties | head -n 1)"
+          build_tools="$(sed -n 's/^buildToolsVersion=//p' gradle.properties | head -n 1)"
+          [[ "$compile_sdk" =~ ^[0-9]+$ ]] || { echo "Invalid compileSdk: $compile_sdk" >&2; exit 1; }
+          [[ "$build_tools" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid buildToolsVersion: $build_tools" >&2; exit 1; }
+          sdkmanager "platforms;android-${compile_sdk}" "build-tools;${build_tools}"
+          yes | sdkmanager --licenses >/dev/null
 
-      - name: Build release APK
+      - name: Decode production signing keystore
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
+          set -euo pipefail
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "ANDROID_KEYSTORE_BASE64 is not configured in the production environment." >&2
+            exit 1
+          fi
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release-upload.keystore"
+          test -s "$RUNNER_TEMP/release-upload.keystore"
+
+      - name: Verify signing secrets are present
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "$name is not configured in the production environment." >&2
+              exit 1
+            fi
+          done
+
+      - name: Build signed release APK
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/release-upload.keystore
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
           chmod +x ./gradlew
           ./gradlew :app:testDebugUnitTest :app:assembleRelease --no-daemon --stacktrace
+          apk="app/build/outputs/apk/release/app-release.apk"
+          test -s "$apk"
+          echo "SIGNED_APK=$apk" >> "$GITHUB_ENV"
 
-      - name: Upload release-candidate artifact
+      - name: Verify APK signature and package identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          build_tools="$(sed -n 's/^buildToolsVersion=//p' gradle.properties | head -n 1)"
+          apksigner="$ANDROID_HOME/build-tools/$build_tools/apksigner"
+          test -x "$apksigner"
+          "$apksigner" verify --verbose "$SIGNED_APK"
+          "$ANDROID_HOME/build-tools/$build_tools/aapt" dump badging "$SIGNED_APK" | grep -F "package: name='com.thirdpartyinspector'"
+
+      - name: Upload signed release candidate
         uses: actions/upload-artifact@v4
         with:
           name: thirdparty-inspector-release-candidate
-          path: app/build/outputs/apk/release/*.apk
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
+          retention-days: 7
