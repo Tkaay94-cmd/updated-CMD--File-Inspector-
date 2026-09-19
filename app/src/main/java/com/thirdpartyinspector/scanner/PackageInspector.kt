@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
+import android.os.Build
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.*
@@ -30,7 +31,7 @@ class PackageInspector(private val context: Context) {
      * NOTE: On Android 11+ package visibility may limit results. We do NOT request QUERY_ALL_PACKAGES by default.
      */
     suspend fun listVisiblePackages(): List<PackageInfoModel> = withContext(Dispatchers.IO) {
-        val packages: List<PackageInfo> = pm.getInstalledPackages(PackageManager.PackageInfoFlags.of(0L))
+        val packages = installedPackagesWithPermissions()
         val result = ArrayList<PackageInfoModel>(packages.size)
         for (p in packages) {
             val ai: ApplicationInfo = p.applicationInfo
@@ -75,5 +76,15 @@ class PackageInspector(private val context: Context) {
             )
         }
         result
+    }
+
+    @Suppress("DEPRECATION")
+    private fun installedPackagesWithPermissions(): List<PackageInfo> {
+        val flags = PackageManager.GET_PERMISSIONS
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            pm.getInstalledPackages(PackageManager.PackageInfoFlags.of(flags.toLong()))
+        } else {
+            pm.getInstalledPackages(flags)
+        }
     }
 }

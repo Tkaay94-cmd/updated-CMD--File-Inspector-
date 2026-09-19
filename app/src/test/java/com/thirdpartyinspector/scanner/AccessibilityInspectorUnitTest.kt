@@ -2,6 +2,7 @@ package com.thirdpartyinspector.scanner
 
 import org.junit.Assert.*
 import org.junit.Test
+import java.util.UUID
 
 class AccessibilityInspectorUnitTest {
 
@@ -70,7 +71,8 @@ object AccessibilityInspectorLogic {
         )
 
         for (s in services) {
-            val installedRecently = s.firstInstallTime != null && (now - s.firstInstallTime) < thirtyDaysMs
+            val firstInstallTime = s.firstInstallTime
+            val installedRecently = firstInstallTime != null && (now - firstInstallTime) < thirtyDaysMs
             if (installedRecently) {
                 findings += com.thirdpartyinspector.data.model.Finding(
                     id = UUID.randomUUID().toString(),

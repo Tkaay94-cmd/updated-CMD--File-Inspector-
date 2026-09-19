@@ -15,7 +15,7 @@ android {
         minSdk = property("minSdk").toString().toInt()
         targetSdk = property("targetSdk").toString().toInt()
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "1.0.0-rc1"
         testInstrumentationRunner = "com.thirdpartyinspector.HiltTestRunner"
     }
 

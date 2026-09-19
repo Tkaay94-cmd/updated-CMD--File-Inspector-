@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
+import android.os.Build
 import android.provider.Settings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -60,7 +61,7 @@ class AccessibilityInspector(private val context: Context) {
 
                 // Attempt to get package metadata where available
                 val pkgInfo: PackageInfo? = try {
-                    pm.getPackageInfo(pkgName, PackageManager.PackageInfoFlags.of(PackageManager.GET_PERMISSIONS.toLong()))
+                    getPackageInfoWithPermissions(pkgName)
                 } catch (e: Exception) {
                     null
                 }
@@ -164,5 +165,15 @@ class AccessibilityInspector(private val context: Context) {
         }
 
         return findings
+    }
+
+    @Suppress("DEPRECATION")
+    private fun getPackageInfoWithPermissions(packageName: String): PackageInfo {
+        val flags = PackageManager.GET_PERMISSIONS
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            pm.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(flags.toLong()))
+        } else {
+            pm.getPackageInfo(packageName, flags)
+        }
     }
 }
