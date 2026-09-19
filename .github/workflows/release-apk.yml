@@ -42,7 +42,6 @@ jobs:
           [[ "$compile_sdk" =~ ^[0-9]+$ ]] || { echo "Invalid compileSdk: $compile_sdk" >&2; exit 1; }
           [[ "$build_tools" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid buildToolsVersion: $build_tools" >&2; exit 1; }
           sdkmanager "platforms;android-${compile_sdk}" "build-tools;${build_tools}"
-          yes | sdkmanager --licenses >/dev/null
 
       - name: Decode production signing keystore
         shell: bash
