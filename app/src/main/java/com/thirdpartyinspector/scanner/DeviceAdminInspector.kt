@@ -4,6 +4,7 @@ import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.*
@@ -53,7 +54,7 @@ class DeviceAdminInspector(private val context: Context) {
                 try {
                     val pkg = comp.packageName
                     val component = comp.flattenToString()
-                    val pkgInfo = try { pm.getPackageInfo(pkg, PackageManager.PackageInfoFlags.of(PackageManager.GET_PERMISSIONS.toLong())) } catch (e: Exception) { null }
+                    val pkgInfo = try { getPackageInfoWithPermissions(pkg) } catch (e: Exception) { null }
                     val label = try { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0))?.toString() } catch (e: Exception) { null }
                     val firstInstall = try { pkgInfo?.firstInstallTime } catch (e: Exception) { null }
                     val installer = try { pm.getInstallerPackageName(pkg) } catch (e: Exception) { null }
@@ -87,6 +88,17 @@ class DeviceAdminInspector(private val context: Context) {
     fun evaluateAdmins(admins: List<DeviceAdminModel>): List<com.thirdpartyinspector.data.model.Finding> {
         return DeviceAdminInspectorLogic.evaluateAdmins(admins)
     }
+
+    @Suppress("DEPRECATION")
+    private fun getPackageInfoWithPermissions(packageName: String) =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            pm.getPackageInfo(
+                packageName,
+                PackageManager.PackageInfoFlags.of(PackageManager.GET_PERMISSIONS.toLong())
+            )
+        } else {
+            pm.getPackageInfo(packageName, PackageManager.GET_PERMISSIONS)
+        }
 }
 
 /**

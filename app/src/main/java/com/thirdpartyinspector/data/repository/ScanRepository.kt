@@ -12,8 +12,7 @@ class ScanRepository @Inject constructor(
     private val dao: ScanDao
 ) {
     suspend fun saveScan(scan: ScanEntity, findings: List<FindingEntity>) {
-        dao.insertScan(scan)
-        if (findings.isNotEmpty()) dao.insertFindings(findings)
+        dao.insertScanWithFindings(scan, findings)
     }
 
     fun getScans(): Flow<List<ScanEntity>> = dao.getScans()

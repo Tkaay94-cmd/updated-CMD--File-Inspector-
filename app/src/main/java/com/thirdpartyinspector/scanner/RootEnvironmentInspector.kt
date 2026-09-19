@@ -90,12 +90,12 @@ class RootEnvironmentInspector(private val context: Context) {
         } catch (_: Exception) {
         }
 
-        // Check for known root management packages visible to this app
-        for (pkg in knownRootPackages) {
-            try {
-                val info = pm.getPackageInfo(pkg, PackageManager.PackageInfoFlags.of(0L))
-                if (info != null) {
-                    indicators += "known_root_pkg:$pkg"
+            // Check for known root management packages visible to this app
+            for (pkg in knownRootPackages) {
+                try {
+                    val info = getPackageInfo(pkg)
+                    if (info != null) {
+                        indicators += "known_root_pkg:$pkg"
                 }
             } catch (_: Exception) {
                 // package not found or not visible
@@ -109,6 +109,14 @@ class RootEnvironmentInspector(private val context: Context) {
         val conf = result.confidence
         result.copy(confidence = conf)
     }
+
+    @Suppress("DEPRECATION")
+    private fun getPackageInfo(packageName: String) =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            pm.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0L))
+        } else {
+            pm.getPackageInfo(packageName, 0)
+        }
 }
 
 /**

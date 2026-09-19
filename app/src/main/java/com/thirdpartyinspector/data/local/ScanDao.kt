@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import com.thirdpartyinspector.data.local.entities.ScanEntity
 import com.thirdpartyinspector.data.local.entities.FindingEntity
 import kotlinx.coroutines.flow.Flow
@@ -18,6 +19,14 @@ interface ScanDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFindings(findings: List<FindingEntity>)
+
+    @Transaction
+    suspend fun insertScanWithFindings(scan: ScanEntity, findings: List<FindingEntity>) {
+        insertScan(scan)
+        if (findings.isNotEmpty()) {
+            insertFindings(findings)
+        }
+    }
 
     @Query("SELECT * FROM findings WHERE scanId = :scanId")
     fun getFindingsForScan(scanId: String): Flow<List<FindingEntity>>
